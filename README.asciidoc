@@ -5,13 +5,6 @@ This proof of concept will generate an H2 response that will lock up Safari and 
 
 The binary string <<"THIS WILL NEVER EVER LOAD">> is never loaded.
 
-To build and run the example, use the following command:
-
-[source,bash]
-$ make run
-
-----
-
 To try this example, you need GNU `make` and `git` in your PATH.
 
 To build and run the example, use the following command:
