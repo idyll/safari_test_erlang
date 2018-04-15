@@ -67,6 +67,7 @@ $ curl -kv -i https://localhost:8443
 * Closing connection 0
 * TLSv1.2 (OUT), TLS alert, Client hello (1):
 curl: (92) HTTP/2 stream 1 was closed cleanly, but before getting  all response header fields, teated as error
+----
 
 [source,bash]
 ----
