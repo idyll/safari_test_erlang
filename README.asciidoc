@@ -1,8 +1,8 @@
-= Latest H2 Bug Proof of Concept
+= H2 Push Bug Proof of Concept
 
 == Based on the Secure hello world example
 
-This example code is used for debugging issues with HTTP/2 Early Hints.
+This example code is used for debugging issues with HTTP/2 Push.
 
 To try this example, you need GNU `make` and `git` in your PATH.
 
@@ -13,14 +13,15 @@ $ make run
 
 Then point your browser to https://localhost:8443
 
-There will be an error in Chrome that prevents the page from loading. In other browsers the page is requested in a loop
-forever.
+Chrome will not use server push to get "app.css" and curl reports an error.
 
-== HTTP/2 example output
+It does appear to work correctly with nghttp
+
+== curl example output
 
 [source,bash]
 ----
-$ curl -kv -i https://localhost:8443
+$ curl -kv https://localhost:8443
 * Rebuilt URL to: https://localhost:8443/
 *   Trying ::1...
 * TCP_NODELAY set
@@ -56,48 +57,49 @@ $ curl -kv -i https://localhost:8443
 * Using HTTP2, server supports multi-use
 * Connection state changed (HTTP/2 confirmed)
 * Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
-* Using Stream ID: 1 (easy handle 0x7fe63580a400)
+* Using Stream ID: 1 (easy handle 0x7f8ba380a400)
 > GET / HTTP/2
 > Host: localhost:8443
 > User-Agent: curl/7.54.0
 > Accept: */*
 >
 * Connection state changed (MAX_CONCURRENT_STREAMS updated)!
-* HTTP/2 stream 1 was closed cleanly, but before getting  all response header fields, teated as error
 * Closing connection 0
 * TLSv1.2 (OUT), TLS alert, Client hello (1):
-curl: (92) HTTP/2 stream 1 was closed cleanly, but before getting  all response header fields, teated as error
+curl: (16) Error in the HTTP2 framing layer
+
 ----
+
+== NGHTTP example output
 
 [source,bash]
 ----
 $ nghttp -v https://localhost:8443
 [ERROR] Could not connect to the address ::1
 Trying next address 127.0.0.1
-[  0.014] Connected
+[  0.012] Connected
 [WARNING] Certificate verification failed: self signed certificate in certificate chain
 The negotiated protocol: h2
-[  0.021] recv SETTINGS frame <length=6, flags=0x00, stream_id=0>
-          (niv=1)
-          [UNKNOWN(0x08):0]
-[  0.021] send SETTINGS frame <length=12, flags=0x00, stream_id=0>
+[  0.019] recv SETTINGS frame <length=0, flags=0x00, stream_id=0>
+          (niv=0)
+[  0.019] send SETTINGS frame <length=12, flags=0x00, stream_id=0>
           (niv=2)
           [SETTINGS_MAX_CONCURRENT_STREAMS(0x03):100]
           [SETTINGS_INITIAL_WINDOW_SIZE(0x04):65535]
-[  0.021] send SETTINGS frame <length=0, flags=0x01, stream_id=0>
+[  0.019] send SETTINGS frame <length=0, flags=0x01, stream_id=0>
           ; ACK
           (niv=0)
-[  0.021] send PRIORITY frame <length=5, flags=0x00, stream_id=3>
+[  0.019] send PRIORITY frame <length=5, flags=0x00, stream_id=3>
           (dep_stream_id=0, weight=201, exclusive=0)
-[  0.021] send PRIORITY frame <length=5, flags=0x00, stream_id=5>
+[  0.019] send PRIORITY frame <length=5, flags=0x00, stream_id=5>
           (dep_stream_id=0, weight=101, exclusive=0)
-[  0.021] send PRIORITY frame <length=5, flags=0x00, stream_id=7>
+[  0.019] send PRIORITY frame <length=5, flags=0x00, stream_id=7>
           (dep_stream_id=0, weight=1, exclusive=0)
-[  0.021] send PRIORITY frame <length=5, flags=0x00, stream_id=9>
+[  0.019] send PRIORITY frame <length=5, flags=0x00, stream_id=9>
           (dep_stream_id=7, weight=1, exclusive=0)
-[  0.021] send PRIORITY frame <length=5, flags=0x00, stream_id=11>
+[  0.019] send PRIORITY frame <length=5, flags=0x00, stream_id=11>
           (dep_stream_id=3, weight=1, exclusive=0)
-[  0.021] send HEADERS frame <length=38, flags=0x25, stream_id=13>
+[  0.020] send HEADERS frame <length=38, flags=0x25, stream_id=13>
           ; END_STREAM | END_HEADERS | PRIORITY
           (padlen=0, dep_stream_id=11, weight=16, exclusive=0)
           ; Open new stream
@@ -108,18 +110,62 @@ The negotiated protocol: h2
           accept: */*
           accept-encoding: gzip, deflate
           user-agent: nghttp2/1.28.0
-[  0.021] recv SETTINGS frame <length=0, flags=0x01, stream_id=0>
+[  0.020] recv SETTINGS frame <length=0, flags=0x01, stream_id=0>
           ; ACK
           (niv=0)
-[  0.021] recv (stream_id=13) :status: 103
-[  0.022] recv (stream_id=13) link: </style.css>; rel=preload; as=style
-[  0.022] [INVALID; error=Violation in HTTP messaging rule] recv HEADERS frame <length=33, flags=0x05, stream_id=13>
-          ; END_STREAM | END_HEADERS
+[  0.021] recv (stream_id=13) :authority: localhost:8443
+[  0.021] recv (stream_id=13) :method: GET
+[  0.021] recv (stream_id=13) :path: /app.css
+[  0.021] recv (stream_id=13) :scheme: https
+[  0.021] recv (stream_id=13) accept: text/css
+[  0.021] recv PUSH_PROMISE frame <length=34, flags=0x04, stream_id=13>
+          ; END_HEADERS
+          (padlen=0, promised_stream_id=2)
+[  0.021] recv (stream_id=13) :status: 200
+[  0.021] recv (stream_id=13) content-length: 443
+[  0.021] recv (stream_id=13) content-type: text/html
+[  0.021] recv (stream_id=13) date: Mon, 07 May 2018 02:15:17 GMT
+[  0.021] recv (stream_id=13) server: Cowboy
+[  0.021] recv HEADERS frame <length=46, flags=0x04, stream_id=13>
+          ; END_HEADERS
           (padlen=0)
           ; First response header
-[  0.022] recv RST_STREAM frame <length=4, flags=0x00, stream_id=13>
-          (error_code=INTERNAL_ERROR(0x02))
-[  0.022] send GOAWAY frame <length=8, flags=0x00, stream_id=0>
-          (last_stream_id=0, error_code=NO_ERROR(0x00), opaque_data(0)=[])
-Some requests were not processed. total=1, processed=0
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Hello Snowday!</title>
+    <link rel="stylesheet" href="./app.css")">
+  </head>
+	<body>
+	  <p>
+      This is a sample web page.
+    </p>
+	</body>
+</html
+	[  0.022] recv DATA frame <length=443, flags=0x01, stream_id=13>
+          ; END_STREAM
+[  0.022] recv (stream_id=2) :status: 200
+[  0.022] recv (stream_id=2) content-length: 86
+[  0.022] recv (stream_id=2) content-type: text/css
+[  0.022] recv (stream_id=2) date: Mon, 07 May 2018 02:15:17 GMT
+[  0.022] recv (stream_id=2) server: Cowboy
+[  0.022] recv HEADERS frame <length=15, flags=0x04, stream_id=2>
+          ; END_HEADERS
+          (padlen=0)
+          ; First push response header
+body{
+      color: green;
+      background-color: pink;
+      font-size: 24px;
+    }
+	[  0.029] recv DATA frame <length=86, flags=0x01, stream_id=2>
+          ; END_STREAM
+[  0.029] send GOAWAY frame <length=8, flags=0x00, stream_id=0>
+          (last_stream_id=2, error_code=NO_ERROR(0x00), opaque_data(0)=[])
 ----
